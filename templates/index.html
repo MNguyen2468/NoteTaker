@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Note-taking Application</title>
+    <link rel="stylesheet" href="../static/style.css">
+</head>
+<body>
+    
+    <h1 id="headerText">Upload PDF for Note Generation</h1>
+    <div class="button-container-generation-type">
+        <button type="button" id="generateNotes" class="active" disabled = true>Generate Notes</button>
+        <button type="button" id="generateQuestions">Generate Practice Questions</button>
+    </div>
+    <form id="uploadForm" method="post" enctype="multipart/form-data">
+        <label for="file">Upload PDF:</label>
+        <input type="file" id="file" name="pdf" accept="application/pdf" required>
+
+        <label for="audience">Knowledge Level:</label>
+        <select id="audience" name="audience">
+            <option value="High School Student">High School Student</option>
+            <option value="Grad Student">Grad Student</option>
+            <option value="Professional in the Field">Professional in the Field</option>
+        </select>
+        
+        <label for="format">Output Format:</label>
+        <select id="format" name="format">
+            <option value="txt">Text File (.txt)</option>
+            <option value="pdf">PDF File (.pdf)</option>
+            <option value="html">HTML File (.html)</option>
+            <option value="docx">Word Document (.docx)</option>
+            <option value="md">Markdown File (.md)</option>
+        </select>
+
+        <label for="questionTypeCheckboxGroup" id="questionTypeCheckboxGroupLabel">Question Type:</label>
+        <div class="question-type-checkbox-group" id="questionTypeCheckboxGroup">
+            <label class="question-type-checkbox-container">
+                <input type="checkbox" id="option1" name="option1" checked>
+                <span class="question-type-checkbox-label">Short Answer</span>
+            </label>
+            
+            <label class="question-type-checkbox-container">
+                <input type="checkbox" id="option2" name="option2">
+                <span class="question-type-checkbox-label">Multiple Choice</span>
+            </label>
+
+            <label class="question-type-checkbox-container">
+                <input type="checkbox" id="option3" name="option3">
+                <span class="question-type-checkbox-label">True/False</span>
+            </label>
+
+            <label class="question-type-checkbox-container">
+                <input type="checkbox" id="option4" name="option4">
+                <span class="question-type-checkbox-label">Logical Order</span>
+            </label>
+
+            <label class="question-type-checkbox-container">
+                <input type="checkbox" id="option5" name="option5">
+                <span class="question-type-checkbox-label">Fill in the Blank</span>
+            </label>
+        </div>
+    
+        <button type="button" id="generate">Generate Notes</button>
+    </form>
+
+    <div id="loading" style="display: none; text-align: center;">
+        <p>Generating notes, please wait...</p>
+    </div>
+
+    <div id="output" style="display: none;">
+        <h2 id="outputHeader">Generated Notes</h2>
+        <pre id="notes"></pre>
+        <button id="download">Download Notes</button>
+    </div>
+
+    <script>
+        const headerText = document.getElementById('headerText');
+        const generateNotesButton = document.getElementById('generateNotes');
+        const generateQuestionsButton = document.getElementById('generateQuestions');
+        const questionTypeCheckboxGroup = document.getElementById('questionTypeCheckboxGroup');
+        const questionTypeCheckboxGroupLabel = document.getElementById('questionTypeCheckboxGroupLabel');
+        const outputDiv = document.getElementById('output');
+        const notesElement = document.getElementById('notes');
+        const generateButton = document.getElementById('generate');
+        const loadingDiv = document.getElementById('loading');
+        const fileInput = document.getElementById('file');
+        const formatSelect = document.getElementById('format');
+        const audienceSelect = document.getElementById('audience');
+        const outputHeader = document.getElementById('outputHeader');
+        const downloadButton = document.getElementById('download');
+        let currentMode = 'notes'; // Default mode
+        
+        // Get checkbox elements
+        const option1Checkbox = document.getElementById('option1');
+        const option2Checkbox = document.getElementById('option2');
+        const option3Checkbox = document.getElementById('option3');
+        const option4Checkbox = document.getElementById('option4');
+        const option5Checkbox = document.getElementById('option5');
+        
+        // Get current values of checkboxes
+
+        // Add event listeners for mode buttons
+        generateNotesButton.addEventListener('click', () => {
+            currentMode = 'notes';
+            headerText.textContent = 'Upload PDF for Note Generation';
+            generateButton.textContent = 'Generate Notes';
+            generateQuestionsButton.classList.remove('active');
+            generateNotesButton.classList.add('active');
+            generateNotesButton.disabled = true;
+            generateQuestionsButton.disabled = false;
+            questionTypeCheckboxGroupLabel.style.display = 'none';
+            questionTypeCheckboxGroup.style.display = 'none';
+            outputHeader.textContent = 'Generated Notes';
+            downloadButton.textContent = 'Download Notes';
+        });
+
+        generateQuestionsButton.addEventListener('click', () => {
+            currentMode = 'questions';
+            headerText.textContent = 'Upload PDF for Question Generation';
+            generateButton.textContent = 'Generate Practice Questions';
+            generateNotesButton.classList.remove('active');
+            generateQuestionsButton.classList.add('active');
+            generateNotesButton.disabled = false;
+            generateQuestionsButton.disabled = true;
+            questionTypeCheckboxGroupLabel.style.display = 'flex';
+            questionTypeCheckboxGroup.style.display = 'flex';
+            outputHeader.textContent = 'Generated Practice Questions';
+            downloadButton.textContent = 'Download Practice Questions';
+        });
+
+        function clearGeneratedNotes() {
+            outputDiv.style.display = 'none';
+            notesElement.innerText = '';
+        }
+
+        fileInput.addEventListener('change', clearGeneratedNotes);
+        formatSelect.addEventListener('change', clearGeneratedNotes);
+        audienceSelect.addEventListener('change', clearGeneratedNotes);
+        generateNotesButton.addEventListener('click', clearGeneratedNotes);
+        generateQuestionsButton.addEventListener('click', clearGeneratedNotes);
+
+        
+        generateButton.addEventListener('click', async () => {
+            if (fileInput.files.length === 0) {
+                alert('Please upload a PDF file');
+                return;
+            }
+
+            clearGeneratedNotes();
+            generateButton.disabled = true;
+            loadingDiv.style.display = 'block';
+
+            try {
+                const formData = new FormData();
+                formData.append('pdf', fileInput.files[0]);
+                formData.append('format', formatSelect.value);
+                formData.append('audience', audienceSelect.value);
+                formData.append('questionType', [
+                    option1Checkbox.checked,
+                    option2Checkbox.checked, 
+                    option3Checkbox.checked,
+                    option4Checkbox.checked,
+                    option5Checkbox.checked
+                ]);
+
+                const endpoint = currentMode === 'notes' ? '/generate_notes' : '/generate_questions';
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    outputDiv.style.display = 'block';
+                    notesElement.innerText = data.notes;
+                }
+            } catch (error) {
+                alert('An error occurred while generating content');
+            } finally {
+                generateButton.disabled = false;
+                loadingDiv.style.display = 'none';
+            }
+        });
+
+        downloadButton.addEventListener('click', async () => {
+            const response = await fetch('/download_notes', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    notes: notesElement.innerText, 
+                    format: formatSelect.value 
+                })
+            });
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `notes.${formatSelect.value}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
